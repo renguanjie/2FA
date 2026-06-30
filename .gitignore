@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Flet build artifacts
+/build/
+/flet_build/
+
+# Extension build artifacts
+extensions/flet_qr_scanner/build/
+extensions/flet_qr_scanner/dist/
+extensions/flet_qr_scanner/src/*.egg-info/
+
+# Environment variables
+.env
+.env.local

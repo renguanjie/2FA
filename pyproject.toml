@@ -1,0 +1,84 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "two-fa-authenticator"
+version = "0.1.0"
+description = "A 2FA authenticator Android app with GitHub integration"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "flet>=0.85.3",
+    "flet-qr-scanner",
+    "pyotp>=2.9.0",
+    "cryptography>=43.0.0",
+    "argon2-cffi>=23.1.0",
+    "sqlmodel>=0.0.22",
+    "qrcode>=7.4",
+    "segno>=1.6",
+    "pillow>=10.0",
+    "pyzbar>=0.1.9",
+    "requests>=2.32.0",
+    "authlib>=1.3.0",
+    "httpx>=0.27.0",
+    "ntplib>=0.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.7.0",
+]
+
+[project.scripts]
+two-fa = "src.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+# ---------------------------------------------------------------------------
+# Flet packaging configuration (used by `flet build apk` / `flet run`).
+# The build entry is the repo-root main.py (module "main", default), so the
+# whole repo root is the app root and `from src...` imports resolve in the
+# bundle. Non-app directories are excluded from the package.
+# ---------------------------------------------------------------------------
+[tool.flet]
+org = "com.rgj"
+product = "TwoFA Authenticator"
+company = "rgj"
+copyright = "Copyright (C) 2026 rgj"
+build_number = 1
+build_version = "0.1.0"
+# High-level permission -> adds android.permission.CAMERA (+ iOS usage strings)
+# for the live camera scanner.
+permissions = ["camera"]
+
+[tool.flet.app]
+exclude = [
+    "tests",
+    "extensions",
+    "build",
+    ".git",
+    ".ruff_cache",
+    ".pytest_cache",
+    "__pycache__",
+    "*.db",
+]
+
+# Local extension built from source and compiled into the Flutter app.
+[tool.flet.dev_packages]
+flet-qr-scanner = "extensions/flet_qr_scanner"
+
+[tool.uv.sources]
+flet-qr-scanner = { path = "extensions/flet_qr_scanner", editable = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

@@ -1,0 +1,1 @@
+from flet_qr_scanner.flet_qr_scanner import FletQrScanner
