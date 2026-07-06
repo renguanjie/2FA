@@ -1,4 +1,8 @@
-"""Main Flet application with page routing."""
+"""Main Flet application with page routing.
+
+Design: brand-gradient FAB, tinted navigation bar indicator,
+smooth AnimatedSwitcher transitions between pages.
+"""
 
 from __future__ import annotations
 
@@ -24,8 +28,8 @@ class TwoFAApp:
     """Main application class managing navigation and state.
 
     Flow:
-    1. App starts → Lock screen
-    2. User unlocks → Home page with OTP accounts
+    1. App starts -> Lock screen
+    2. User unlocks -> Home page with OTP accounts
     3. Bottom navigation: Home | GitHub | Settings
     """
 
@@ -34,10 +38,8 @@ class TwoFAApp:
         Config.load_settings()
         self._vault = Vault(Config.get_db_path())
 
-        # Initialize database
         init_db(Config.get_db_path())
 
-        # Page setup
         page.title = Config.APP_NAME
         page.theme = get_theme()
         page.theme_mode = ft.ThemeMode.SYSTEM
@@ -59,50 +61,58 @@ class TwoFAApp:
         self._backup_page: BackupPage | None = None
         self._add_page: AddAccountPage | None = None
 
-        # Content area
+        # Content area with fade transition — expand=True is required so
+        # child pages (Columns with expand) receive bounded height from
+        # the parent; without it ListViews can't scroll.
         self._content = ft.AnimatedSwitcher(
             content=ft.Container(),
             transition=ft.AnimatedSwitcherTransition.FADE,
-            duration=200,
+            duration=250,
+            expand=True,
         )
 
-        # Bottom navigation bar
+        # Bottom navigation bar with tinted indicator
         self._nav_bar = ft.NavigationBar(
             selected_index=0,
             on_change=self._on_nav_change,
             destinations=[
                 ft.NavigationBarDestination(
-                    icon=ft.Icons.HOME,
+                    icon=ft.Icons.HOME_OUTLINED,
                     selected_icon=ft.Icons.HOME,
                     label="Home",
                 ),
                 ft.NavigationBarDestination(
-                    icon=ft.Icons.CODE,
+                    icon=ft.Icons.CODE_OUTLINED,
                     selected_icon=ft.Icons.CODE,
                     label="GitHub",
                 ),
                 ft.NavigationBarDestination(
-                    icon=ft.Icons.SETTINGS,
+                    icon=ft.Icons.SETTINGS_OUTLINED,
                     selected_icon=ft.Icons.SETTINGS,
                     label="Settings",
                 ),
             ],
+            indicator_color="#6366F1",
+            indicator_shape=ft.RoundedRectangleBorder(radius=16),
+            bgcolor=ft.Colors.with_opacity(0.03, ft.Colors.ON_SURFACE),
+            elevation=0,
+            label_behavior=ft.NavigationBarLabelBehavior.ALWAYS_SHOW,
             visible=False,
         )
 
-        # FAB
+        # FAB - indigo rounded with glow
         self._fab = ft.FloatingActionButton(
             icon=ft.Icons.ADD,
             on_click=self._show_add_page,
-            bgcolor=ft.Colors.BLUE,
+            bgcolor="#6366F1",
             foreground_color=ft.Colors.WHITE,
+            shape=ft.RoundedRectangleBorder(radius=16),
+            elevation=6,
         )
 
-        # Start with lock screen
         self._show_lock()
 
     def _show_lock(self) -> None:
-        """Display the lock screen."""
         self._stop_auto_lock()
         self._nav_bar.visible = False
         self.page.floating_action_button = None
@@ -115,8 +125,6 @@ class TwoFAApp:
 
         self._content.content = lock_page
         self.page.controls.clear()
-        # SafeArea keeps content clear of the status bar / notch (otherwise the
-        # title and search field render under the system clock on Android).
         self.page.add(
             ft.SafeArea(
                 content=ft.Column(
@@ -132,7 +140,6 @@ class TwoFAApp:
         self.page.update()
 
     def _on_vault_unlocked(self) -> None:
-        """Called when the vault is successfully unlocked."""
         self._nav_bar.visible = True
         self.page.floating_action_button = self._fab
         self._record_activity()
@@ -140,7 +147,6 @@ class TwoFAApp:
         self._show_home()
 
     def _show_home(self) -> None:
-        """Display the home page."""
         self._current_index = 0
         self._record_activity()
         self._nav_bar.selected_index = 0
@@ -156,7 +162,6 @@ class TwoFAApp:
         self.page.update()
 
     def _show_github(self) -> None:
-        """Display the GitHub page."""
         self._current_index = 1
         self._record_activity()
         self.page.floating_action_button = None
@@ -171,7 +176,6 @@ class TwoFAApp:
         self.page.update()
 
     def _show_settings(self) -> None:
-        """Display the settings page."""
         self._current_index = 2
         self._record_activity()
         self.page.floating_action_button = None
@@ -187,7 +191,6 @@ class TwoFAApp:
         self.page.update()
 
     def _show_backup(self) -> None:
-        """Display the backup page."""
         self._record_activity()
         self._backup_page = BackupPage(
             vault=self._vault,
@@ -198,7 +201,6 @@ class TwoFAApp:
         self.page.update()
 
     def _show_add_page(self, e=None) -> None:
-        """Display the add account page."""
         self._record_activity()
         self.page.floating_action_button = None
 
@@ -217,7 +219,6 @@ class TwoFAApp:
         self.page.update()
 
     def _on_nav_change(self, e) -> None:
-        """Handle bottom navigation change."""
         index = e.control.selected_index
         if index == 0:
             self._show_home()
@@ -227,17 +228,14 @@ class TwoFAApp:
             self._show_settings()
 
     def _record_activity(self) -> None:
-        """Record recent user activity for auto-lock."""
         self._last_activity = time.monotonic()
 
     def _on_keyboard_event(self, e) -> None:
-        """Reset auto-lock timer on keyboard activity."""
         self._record_activity()
         if self._previous_keyboard_handler:
             self._previous_keyboard_handler(e)
 
     def _start_auto_lock(self) -> None:
-        """Start background auto-lock monitoring."""
         self._stop_auto_lock()
         if Config.AUTO_LOCK_SECONDS <= 0:
             return
@@ -256,7 +254,6 @@ class TwoFAApp:
         self._auto_lock_task = asyncio.create_task(_auto_lock_loop())
 
     def _stop_auto_lock(self) -> None:
-        """Stop background auto-lock monitoring."""
         if self._auto_lock_task:
             self._auto_lock_task.cancel()
             self._auto_lock_task = None

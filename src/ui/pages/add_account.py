@@ -1,4 +1,8 @@
-"""Add account page - Manual input, QR scan, or URI import."""
+"""Add account page - Manual input, QR scan, or URI import.
+
+Design: gradient header, colourful segmented switcher, and
+rounded form fields.
+"""
 
 from __future__ import annotations
 
@@ -17,25 +21,19 @@ from src.ui.flet_compat import (
     padding_symmetric,
     show_snack_bar,
 )
+from src.ui.theme import BRAND_GRADIENT
 
 try:
-    # Native live-camera scanner extension (available in Android/iOS builds).
     from flet_qr_scanner import FletQrScanner
 
     _HAS_CAMERA_SCANNER = True
-except ImportError:  # pragma: no cover - extension absent on plain desktop installs
+except ImportError:  # pragma: no cover
     FletQrScanner = None
     _HAS_CAMERA_SCANNER = False
 
 
 class AddAccountPage(ft.Column):
-    """Page for adding a new OTP account.
-
-    Supports three methods:
-    1. Manual entry (issuer, name, secret)
-    2. Scan QR code
-    3. Paste otpauth:// URI
-    """
+    """Page for adding a new OTP account."""
 
     def __init__(
         self,
@@ -48,7 +46,7 @@ class AddAccountPage(ft.Column):
         self.app_page = page
         self._on_done = on_done
 
-        # Manual entry fields
+        # Form fields
         self._issuer_field = ft.TextField(
             label="Issuer (e.g. GitHub)",
             prefix_icon=ft.Icons.BUSINESS,
@@ -106,7 +104,6 @@ class AddAccountPage(ft.Column):
             width=120,
         )
 
-        # URI input
         self._uri_field = ft.TextField(
             label="otpauth:// URI",
             hint_text="Paste otpauth://totp/...",
@@ -117,7 +114,9 @@ class AddAccountPage(ft.Column):
             max_lines=4,
         )
 
-        # Tabs for different input methods
+        # Method views — each tab Container has expand=True so it fills
+        # the _method_content bounds, letting the inner scroll Column
+        # properly scroll when content overflows.
         self._manual_tab = ft.Container(
             content=ft.Column(
                 controls=[
@@ -136,38 +135,70 @@ class AddAccountPage(ft.Column):
                 ],
                 spacing=12,
                 scroll=ft.ScrollMode.AUTO,
+                expand=True,
             ),
             padding=padding_all(16),
+            expand=True,
         )
         self._qr_tab = ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Icon(
-                        ft.Icons.QR_CODE_SCANNER,
-                        size=80,
-                        color=ft.Colors.with_opacity(0.3, ft.Colors.ON_SURFACE),
+                    ft.Container(
+                        content=ft.Icon(
+                            ft.Icons.QR_CODE_SCANNER,
+                            size=48,
+                            color=ft.Colors.WHITE,
+                        ),
+                        width=80,
+                        height=80,
+                        border_radius=24,
+                        gradient=ft.LinearGradient(
+                            begin=ft.Alignment.TOP_LEFT,
+                            end=ft.Alignment.BOTTOM_RIGHT,
+                            colors=["#6366F1", "#06B6D4"],
+                        ),
+                        alignment=ft.Alignment.CENTER,
+                        shadow=[
+                            ft.BoxShadow(
+                                spread_radius=0,
+                                blur_radius=16,
+                                color=ft.Colors.with_opacity(0.3, "#6366F1"),
+                                offset=ft.Offset(0, 6),
+                            ),
+                        ],
                     ),
                     ft.Text(
                         "Scan an otpauth QR code",
                         text_align=ft.TextAlign.CENTER,
-                        color=ft.Colors.with_opacity(0.5, ft.Colors.ON_SURFACE),
+                        size=14,
+                        color=ft.Colors.with_opacity(
+                            0.55, ft.Colors.ON_SURFACE
+                        ),
                     ),
                     button(
                         "Scan with Camera",
                         icon=ft.Icons.PHOTO_CAMERA,
                         on_click=self._scan_camera,
+                        style=ft.ButtonStyle(
+                            shape=ft.RoundedRectangleBorder(radius=12),
+                        ),
                     ),
                     button(
                         "Select Image",
                         icon=ft.Icons.IMAGE,
                         on_click=self._pick_image,
+                        style=ft.ButtonStyle(
+                            shape=ft.RoundedRectangleBorder(radius=12),
+                        ),
                     ),
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 alignment=ft.MainAxisAlignment.CENTER,
                 spacing=16,
+                expand=True,
             ),
             padding=padding_all(32),
+            expand=True,
         )
         self._uri_tab = ft.Container(
             content=ft.Column(
@@ -177,42 +208,63 @@ class AddAccountPage(ft.Column):
                         "Import from URI",
                         icon=ft.Icons.IMPORT_EXPORT,
                         on_click=self._import_uri,
+                        style=ft.ButtonStyle(
+                            shape=ft.RoundedRectangleBorder(radius=12),
+                        ),
                     ),
                 ],
                 spacing=12,
+                expand=True,
+                scroll=ft.ScrollMode.AUTO,
             ),
             padding=padding_all(16),
+            expand=True,
         )
-        # --- Input-method switcher ------------------------------------------
-        # flet 0.85's native Tabs (TabBar + TabBarView controller pattern) did
-        # not switch views on tap in the packaged Android build, so we drive the
-        # switch ourselves: tappable segments + a content container we swap
-        # explicitly. Container.on_click is a reliable tap target on mobile.
-        self._method_views = [self._manual_tab, self._qr_tab, self._uri_tab]
-        self._method_content = ft.Container(content=self._manual_tab, expand=True)
 
-        def _segment(idx: int, label: str, icon) -> ft.Container:
-            return ft.Container(
+        # Method views list
+        self._method_views = [self._manual_tab, self._qr_tab, self._uri_tab]
+        self._method_content = ft.Container(
+            content=self._manual_tab, expand=True
+        )
+
+        # Colourful segmented switcher
+        segment_data = [
+            ("Manual", ft.Icons.EDIT, "#6366F1"),
+            ("Scan QR", ft.Icons.QR_CODE_SCANNER, "#8B5CF6"),
+            ("Paste URI", ft.Icons.CONTENT_PASTE, "#06B6D4"),
+        ]
+        self._segment_buttons: list[ft.Container] = []
+        for idx, (label, icon, color) in enumerate(segment_data):
+            seg = ft.Container(
                 content=ft.Row(
-                    controls=[ft.Icon(icon, size=18), ft.Text(label)],
+                    controls=[
+                        ft.Icon(icon, size=18, color=ft.Colors.WHITE),
+                        ft.Text(
+                            label,
+                            weight=ft.FontWeight.W_600,
+                            color=ft.Colors.WHITE,
+                        ),
+                    ],
                     alignment=ft.MainAxisAlignment.CENTER,
                     spacing=6,
                 ),
                 on_click=lambda e, i=idx: self._select_method(i),
-                padding=padding_symmetric(horizontal=8, vertical=10),
-                border_radius=10,
+                padding=padding_symmetric(horizontal=10, vertical=10),
+                border_radius=12,
                 ink=True,
                 expand=True,
+                bgcolor=color,
+                opacity=1.0 if idx == 0 else 0.45,
+                animate_opacity=ft.Animation(200),
             )
+            self._segment_buttons.append(seg)
 
-        self._segment_buttons = [
-            _segment(0, "Manual", ft.Icons.EDIT),
-            _segment(1, "Scan QR", ft.Icons.QR_CODE_SCANNER),
-            _segment(2, "Paste URI", ft.Icons.CONTENT_PASTE),
-        ]
         self._method_bar = ft.Container(
-            content=ft.Row(controls=self._segment_buttons, spacing=4),
-            padding=padding_symmetric(horizontal=12),
+            content=ft.Row(controls=self._segment_buttons, spacing=6),
+            padding=ft.Padding(6, 6, 6, 6),
+            bgcolor=ft.Colors.with_opacity(0.04, ft.Colors.ON_SURFACE),
+            border_radius=16,
+            margin=ft.Margin(12, 0, 12, 0),
         )
 
         # Error text
@@ -220,10 +272,11 @@ class AddAccountPage(ft.Column):
             "",
             color=ft.Colors.RED,
             size=13,
+            weight=ft.FontWeight.W_500,
             visible=False,
         )
 
-        # Buttons
+        # Save button
         self._save_btn = button(
             "Save Account",
             icon=ft.Icons.SAVE,
@@ -232,60 +285,85 @@ class AddAccountPage(ft.Column):
                 shape=ft.RoundedRectangleBorder(radius=12),
             ),
         )
-
-        # Save button lives inside the Manual view — only manual entry needs it;
-        # the QR and URI views have their own action buttons.
         self._manual_tab.content.controls.append(
-            ft.Container(content=self._save_btn, padding=padding_only(top=8))
+            ft.Container(
+                content=self._save_btn, padding=padding_only(top=8)
+            )
         )
-
-        # Apply initial segment selection styling (no page update yet — not mounted).
-        self._apply_method(0)
 
         self.expand = True
         self.controls = [
+            # Gradient header
             ft.Container(
-                content=ft.Text(
-                    "Add Account",
-                    size=24,
-                    weight=ft.FontWeight.BOLD,
+                content=ft.Row(
+                    controls=[
+                        ft.Column(
+                            controls=[
+                                ft.Text(
+                                    "Add Account",
+                                    size=22,
+                                    weight=ft.FontWeight.W_800,
+                                    color=ft.Colors.WHITE,
+                                ),
+                                ft.Text(
+                                    "Scan, paste, or type manually",
+                                    size=12,
+                                    color=ft.Colors.with_opacity(
+                                        0.8, ft.Colors.WHITE
+                                    ),
+                                ),
+                            ],
+                            spacing=2,
+                            expand=True,
+                        ),
+                        ft.Container(
+                            content=ft.Icon(
+                                ft.Icons.ADD_CIRCLE,
+                                size=22,
+                                color=ft.Colors.WHITE,
+                            ),
+                            width=38,
+                            height=38,
+                            border_radius=12,
+                            bgcolor=ft.Colors.with_opacity(
+                                0.2, ft.Colors.WHITE
+                            ),
+                            alignment=ft.Alignment.CENTER,
+                        ),
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                padding=padding_only(left=16, top=16, bottom=8),
+                padding=ft.Padding(16, 16, 16, 16),
+                gradient=BRAND_GRADIENT,
+                border_radius=ft.BorderRadius(0, 0, 20, 20),
             ),
+            ft.Container(height=12),
             self._method_bar,
-            self._error_text,
+            ft.Container(
+                content=self._error_text,
+                padding=padding_symmetric(horizontal=16),
+            ),
             self._method_content,
         ]
 
-    def _apply_method(self, index: int) -> None:
-        """Set the visible input view and segment styling (no page update)."""
+    def _select_method(self, index: int) -> None:
         self._method_content.content = self._method_views[index]
         for i, seg in enumerate(self._segment_buttons):
-            seg.bgcolor = (
-                ft.Colors.with_opacity(0.12, ft.Colors.PRIMARY) if i == index else None
-            )
-
-    def _select_method(self, index: int) -> None:
-        """Switch the visible input method (Manual / Scan QR / Paste URI)."""
-        self._apply_method(index)
+            seg.opacity = 1.0 if i == index else 0.45
         self._clear_error()
         self.update()
 
     def _show_error(self, message: str) -> None:
-        """Display an error message."""
         self._error_text.value = message
         self._error_text.visible = True
         self.update()
 
     def _clear_error(self) -> None:
-        """Clear the error message."""
         self._error_text.value = ""
         self._error_text.visible = False
 
     def _save_manual(self, e) -> None:
-        """Save account from manual entry fields."""
         self._clear_error()
-
         issuer = self._issuer_field.value.strip()
         name = self._name_field.value.strip()
         secret = self._secret_field.value.strip().upper().replace(" ", "")
@@ -293,28 +371,23 @@ class AddAccountPage(ft.Column):
         if not secret:
             self._show_error("Secret key is required")
             return
-
         if not issuer:
             issuer = "Unknown"
-
         if not name:
             name = "Account"
 
-        # Validate secret is valid Base32
         try:
             import base64
-            # Add padding if needed
-            padding = 8 - len(secret) % 8
-            if padding != 8:
-                secret += "=" * padding
+
+            pad = 8 - len(secret) % 8
+            if pad != 8:
+                secret += "=" * pad
             base64.b32decode(secret)
         except Exception:
             self._show_error("Invalid Base32 secret key")
             return
 
-        # Remove padding for storage
         secret = secret.rstrip("=")
-
         account = OTPAccount(
             id=str(uuid.uuid4()),
             issuer=issuer,
@@ -335,18 +408,14 @@ class AddAccountPage(ft.Column):
             self._show_error(f"Failed to save: {ex}")
 
     def _import_uri(self, e) -> None:
-        """Import account from a pasted otpauth:// URI."""
         self._clear_error()
-
         uri = self._uri_field.value.strip()
         if not uri:
             self._show_error("Please paste an otpauth:// URI")
             return
-
         if not uri.startswith("otpauth://"):
             self._show_error("URI must start with otpauth://")
             return
-
         try:
             account = parse_otpauth_uri(uri)
             self.vault.add_account(account)
@@ -358,7 +427,6 @@ class AddAccountPage(ft.Column):
             self._show_error(f"Failed to import: {ex}")
 
     def _scan_camera(self, e) -> None:
-        """Open the live camera scanner (native extension) in a dialog."""
         if not _HAS_CAMERA_SCANNER:
             show_snack_bar(
                 self.app_page,
@@ -377,8 +445,9 @@ class AddAccountPage(ft.Column):
             expand=True,
         )
         self._scan_dialog = ft.AlertDialog(
-            title=ft.Text("Scan QR code"),
+            title=ft.Text("Scan QR code", weight=ft.FontWeight.W_700),
             content=ft.Container(width=300, height=300, content=scanner),
+            shape=ft.RoundedRectangleBorder(radius=16),
             actions=[
                 ft.TextButton(
                     "Cancel",
@@ -391,7 +460,6 @@ class AddAccountPage(ft.Column):
         self.app_page.update()
 
     def _close_scan_dialog(self) -> None:
-        """Close and discard the camera scanner dialog if open."""
         dialog = getattr(self, "_scan_dialog", None)
         if dialog is not None:
             dialog.open = False
@@ -399,14 +467,11 @@ class AddAccountPage(ft.Column):
             self.app_page.update()
 
     def _on_qr_detected(self, e) -> None:
-        """Handle a decoded value from the live camera scanner."""
         uri = (getattr(e, "data", None) or "").strip()
         self._close_scan_dialog()
-
         if not uri.startswith("otpauth://"):
             self._show_error("Scanned code is not an otpauth:// URI")
             return
-
         try:
             account = parse_otpauth_uri(uri)
             self.vault.add_account(account)
@@ -418,30 +483,63 @@ class AddAccountPage(ft.Column):
             self._show_error(f"Failed to add account: {ex}")
 
     def _pick_image(self, e) -> None:
-        """Open file picker to select a QR code image."""
-        def _on_result(result: ft.FilePickerResultEvent):
-            if result.files:
-                try:
-                    from src.core.qr import scan_qr_from_image
+        """Open file picker to select a QR code image.
+
+        Handles both regular file paths and Android content URIs by
+        falling back to byte-level decoding when ``Image.open(path)``
+        fails.
+        """
+
+        async def _on_result(result: ft.FilePickerResultEvent):
+            if not result.files:
+                return
+            picked = result.files[0]
+            path_str = getattr(picked, "path", None) or ""
+            try:
+                from src.core.qr import scan_qr_from_bytes, scan_qr_from_image
+
+                # Try path-based decode first (desktop / cached Android)
+                if path_str:
                     from pathlib import Path
 
-                    image_path = Path(result.files[0].path)
-                    uri = scan_qr_from_image(image_path)
+                    image_path = Path(path_str)
+                    if image_path.is_file():
+                        uri = scan_qr_from_image(image_path)
+                        if uri and uri.startswith("otpauth://"):
+                            account = parse_otpauth_uri(uri)
+                            self.vault.add_account(account)
+                            if self._on_done:
+                                self._on_done()
+                            return
 
+                # Fallback: read raw bytes and decode in-memory
+                # (handles Android content:// URIs or inaccessible paths)
+                if path_str:
+                    with open(path_str, "rb") as f:
+                        raw = f.read()
+                    uri = scan_qr_from_bytes(raw)
                     if uri and uri.startswith("otpauth://"):
                         account = parse_otpauth_uri(uri)
                         self.vault.add_account(account)
                         if self._on_done:
                             self._on_done()
-                    else:
-                        self._show_error("No valid otpauth QR code found in image")
-                except Exception as ex:
-                    self._show_error(f"Failed to scan QR: {ex}")
+                        return
+                    # File exists but no QR found
+                    self._show_error(
+                        "No valid otpauth QR code found in image"
+                    )
+                    return
+
+                self._show_error("Could not read the selected image")
+            except FileNotFoundError:
+                self._show_error("Selected image was not found on disk")
+            except Exception as ex:
+                self._show_error(f"Failed to scan QR: {ex}")
 
         file_picker = ft.FilePicker(on_result=_on_result)
         self.app_page.overlay.append(file_picker)
         self.app_page.update()
         file_picker.pick_files(
             dialog_title="Select QR Code Image",
-            file_type=ft.FilePickerFileType.IMAGE,
+            file_type=ft.FilePickerFileType.ANY,
         )

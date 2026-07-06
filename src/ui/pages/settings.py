@@ -1,4 +1,8 @@
-"""Settings page."""
+"""Settings page.
+
+Design: gradient page header, card-based sections with
+colourful icon badges, and pill-shaped action buttons.
+"""
 
 from __future__ import annotations
 
@@ -8,18 +12,18 @@ import flet as ft
 
 from src.config import Config
 from src.core.vault import Vault
-from src.ui.flet_compat import button, padding_only, padding_symmetric, set_clipboard, show_snack_bar
+from src.ui.flet_compat import (
+    border_all,
+    button,
+    padding_all,
+    set_clipboard,
+    show_snack_bar,
+)
+from src.ui.theme import BRAND_GRADIENT
 
 
 class SettingsPage(ft.Column):
-    """Application settings page.
-
-    Sections:
-    - Security (auto-lock, clipboard clear)
-    - GitHub (client ID/secret)
-    - Data (backup, restore, import/export)
-    - About
-    """
+    """Application settings page."""
 
     def __init__(
         self,
@@ -34,7 +38,6 @@ class SettingsPage(ft.Column):
         self._on_backup = on_backup
         self._on_restore = on_restore
 
-        # Security settings
         self._auto_lock_dropdown = ft.Dropdown(
             label="Auto-lock after",
             value=str(Config.AUTO_LOCK_SECONDS),
@@ -61,7 +64,6 @@ class SettingsPage(ft.Column):
             width=200,
         )
 
-        # GitHub settings
         self._github_client_id = ft.TextField(
             label="GitHub Client ID",
             value=Config.GITHUB_CLIENT_ID,
@@ -79,138 +81,217 @@ class SettingsPage(ft.Column):
 
         self.expand = True
         self.controls = [
+            # Gradient header
             ft.Container(
-                content=ft.Text(
-                    "Settings",
-                    size=24,
-                    weight=ft.FontWeight.BOLD,
+                content=ft.Row(
+                    controls=[
+                        ft.Column(
+                            controls=[
+                                ft.Text(
+                                    "Settings",
+                                    size=22,
+                                    weight=ft.FontWeight.W_800,
+                                    color=ft.Colors.WHITE,
+                                ),
+                                ft.Text(
+                                    "Customise your vault",
+                                    size=12,
+                                    color=ft.Colors.with_opacity(
+                                        0.8, ft.Colors.WHITE
+                                    ),
+                                ),
+                            ],
+                            spacing=2,
+                            expand=True,
+                        ),
+                        ft.Container(
+                            content=ft.Icon(
+                                ft.Icons.SETTINGS,
+                                size=22,
+                                color=ft.Colors.WHITE,
+                            ),
+                            width=38,
+                            height=38,
+                            border_radius=12,
+                            bgcolor=ft.Colors.with_opacity(0.2, ft.Colors.WHITE),
+                            alignment=ft.Alignment.CENTER,
+                        ),
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                padding=padding_only(left=16, top=16, bottom=8),
+                padding=ft.Padding(16, 16, 16, 16),
+                gradient=BRAND_GRADIENT,
+                border_radius=ft.BorderRadius(0, 0, 20, 20),
             ),
+            ft.Container(height=8),
             ft.ListView(
                 controls=[
-                    # Security section
-                    self._section_header("Security", ft.Icons.SECURITY),
-                    ft.Container(
-                        content=ft.Column(
-                            controls=[
-                                self._auto_lock_dropdown,
-                                self._clipboard_clear_dropdown,
-                            ],
-                            spacing=12,
-                        ),
-                        padding=padding_symmetric(horizontal=16, vertical=8),
+                    self._card_section(
+                        icon=ft.Icons.SECURITY,
+                        icon_color="#6366F1",
+                        title="Security",
+                        controls=[
+                            self._auto_lock_dropdown,
+                            self._clipboard_clear_dropdown,
+                        ],
                     ),
-
-                    # Change password
-                    ft.Container(
-                        content=button(
-                            "Change Master Password",
-                            icon=ft.Icons.LOCK_RESET,
-                            on_click=self._change_password,
-                        ),
-                        padding=padding_symmetric(horizontal=16),
-                    ),
-
-                    ft.Divider(),
-
-                    # GitHub section
-                    self._section_header("GitHub", ft.Icons.CODE),
-                    ft.Container(
-                        content=ft.Column(
-                            controls=[
-                                self._github_client_id,
-                                self._github_client_secret,
-                                button(
-                                    "Save GitHub Settings",
-                                    icon=ft.Icons.SAVE,
-                                    on_click=self._save_github_settings,
+                    self._card_section(
+                        icon=ft.Icons.LOCK_RESET,
+                        icon_color="#8B5CF6",
+                        title="Password",
+                        controls=[
+                            button(
+                                "Change Master Password",
+                                icon=ft.Icons.LOCK_RESET,
+                                on_click=self._change_password,
+                                style=ft.ButtonStyle(
+                                    shape=ft.RoundedRectangleBorder(radius=12),
                                 ),
-                            ],
-                            spacing=12,
-                        ),
-                        padding=padding_symmetric(horizontal=16, vertical=8),
+                            ),
+                        ],
                     ),
-
-                    ft.Divider(),
-
-                    # Data section
-                    self._section_header("Data", ft.Icons.STORAGE),
-                    ft.Container(
-                        content=ft.Column(
-                            controls=[
-                                ft.Row(
-                                    controls=[
-                                        button(
-                                            "Export Backup",
-                                            icon=ft.Icons.BACKUP,
-                                            on_click=lambda _: self._on_backup() if self._on_backup else None,
-                                            expand=True,
+                    self._card_section(
+                        icon=ft.Icons.CODE,
+                        icon_color="#1B2838",
+                        title="GitHub",
+                        controls=[
+                            self._github_client_id,
+                            self._github_client_secret,
+                            button(
+                                "Save GitHub Settings",
+                                icon=ft.Icons.SAVE,
+                                on_click=self._save_github_settings,
+                                style=ft.ButtonStyle(
+                                    shape=ft.RoundedRectangleBorder(radius=12),
+                                ),
+                            ),
+                        ],
+                    ),
+                    self._card_section(
+                        icon=ft.Icons.STORAGE,
+                        icon_color="#06B6D4",
+                        title="Data",
+                        controls=[
+                            ft.Row(
+                                controls=[
+                                    button(
+                                        "Export Backup",
+                                        icon=ft.Icons.BACKUP,
+                                        on_click=lambda _: self._on_backup()
+                                        if self._on_backup
+                                        else None,
+                                        expand=True,
+                                        style=ft.ButtonStyle(
+                                            shape=ft.RoundedRectangleBorder(
+                                                radius=12
+                                            ),
                                         ),
-                                        button(
-                                            "Import Backup",
-                                            icon=ft.Icons.RESTORE,
-                                            on_click=lambda _: self._on_restore() if self._on_restore else None,
-                                            expand=True,
+                                    ),
+                                    button(
+                                        "Import Backup",
+                                        icon=ft.Icons.RESTORE,
+                                        on_click=lambda _: self._on_restore()
+                                        if self._on_restore
+                                        else None,
+                                        expand=True,
+                                        style=ft.ButtonStyle(
+                                            shape=ft.RoundedRectangleBorder(
+                                                radius=12
+                                            ),
                                         ),
-                                    ],
-                                    spacing=12,
+                                    ),
+                                ],
+                                spacing=12,
+                            ),
+                            ft.OutlinedButton(
+                                "Export as URI List",
+                                icon=ft.Icons.LINK,
+                                on_click=self._export_uris,
+                                style=ft.ButtonStyle(
+                                    shape=ft.RoundedRectangleBorder(radius=12),
                                 ),
-                                ft.OutlinedButton(
-                                    "Export as URI List",
-                                    icon=ft.Icons.LINK,
-                                    on_click=self._export_uris,
-                                ),
-                            ],
-                            spacing=12,
-                        ),
-                        padding=padding_symmetric(horizontal=16, vertical=8),
+                            ),
+                        ],
                     ),
-
-                    ft.Divider(),
-
-                    # About section
-                    self._section_header("About", ft.Icons.INFO),
-                    ft.Container(
-                        content=ft.Column(
-                            controls=[
-                                ft.Text(f"Version: {Config.APP_VERSION}"),
-                                ft.Text("A secure 2FA authenticator with GitHub integration."),
-                                ft.Text(
-                                    "Open source under MIT License.",
-                                    size=13,
-                                    color=ft.Colors.with_opacity(0.6, ft.Colors.ON_SURFACE),
+                    self._card_section(
+                        icon=ft.Icons.INFO,
+                        icon_color="#10B981",
+                        title="About",
+                        controls=[
+                            ft.Text(
+                                f"Version {Config.APP_VERSION}",
+                                weight=ft.FontWeight.W_600,
+                            ),
+                            ft.Text(
+                                "A secure 2FA authenticator with GitHub integration.",
+                                size=13,
+                                color=ft.Colors.with_opacity(
+                                    0.6, ft.Colors.ON_SURFACE
                                 ),
-                            ],
-                            spacing=4,
-                        ),
-                        padding=padding_symmetric(horizontal=16, vertical=8),
+                            ),
+                            ft.Text(
+                                "Open source under MIT License.",
+                                size=12,
+                                color=ft.Colors.with_opacity(
+                                    0.45, ft.Colors.ON_SURFACE
+                                ),
+                            ),
+                        ],
                     ),
                 ],
-                spacing=8,
+                spacing=10,
                 expand=True,
             ),
         ]
 
-    def _section_header(self, title: str, icon: str) -> ft.Container:
-        """Create a section header."""
+    def _card_section(
+        self,
+        *,
+        icon: str,
+        icon_color: str,
+        title: str,
+        controls: list,
+    ) -> ft.Container:
+        """Render a titled card section with an icon badge."""
         return ft.Container(
-            content=ft.Row(
+            content=ft.Column(
                 controls=[
-                    ft.Icon(icon, size=20, color=ft.Colors.BLUE),
-                    ft.Text(
-                        title,
-                        size=16,
-                        weight=ft.FontWeight.W_600,
+                    ft.Row(
+                        controls=[
+                            ft.Container(
+                                content=ft.Icon(icon, size=18, color=icon_color),
+                                width=36,
+                                height=36,
+                                border_radius=10,
+                                bgcolor=ft.Colors.with_opacity(0.1, icon_color),
+                                alignment=ft.Alignment.CENTER,
+                            ),
+                            ft.Text(title, size=15, weight=ft.FontWeight.W_700),
+                        ],
+                        spacing=10,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
+                    ft.Container(height=8),
+                    ft.Column(controls=controls, spacing=12),
                 ],
-                spacing=8,
+                spacing=0,
             ),
-            padding=padding_only(left=16, top=12, bottom=4),
+            padding=padding_all(16),
+            border_radius=16,
+            bgcolor=ft.Colors.with_opacity(0.03, ft.Colors.ON_SURFACE),
+            border=border_all(1, ft.Colors.with_opacity(0.06, ft.Colors.ON_SURFACE)),
+            shadow=[
+                ft.BoxShadow(
+                    spread_radius=0,
+                    blur_radius=10,
+                    color=ft.Colors.with_opacity(0.05, ft.Colors.ON_SURFACE),
+                    offset=ft.Offset(0, 3),
+                ),
+            ],
+            margin=ft.Margin(12, 0, 12, 0),
         )
 
     def _change_password(self, e) -> None:
-        """Show change password dialog."""
         old_pw_field = ft.TextField(
             label="Current Password",
             password=True,
@@ -236,7 +317,6 @@ class SettingsPage(ft.Column):
                 error_text.visible = True
                 self.app_page.update()
                 return
-
             try:
                 self.vault.change_password(old_pw_field.value, new_pw_field.value)
                 dialog.open = False
@@ -247,62 +327,68 @@ class SettingsPage(ft.Column):
             except Exception as ex:
                 error_text.value = f"Error: {ex}"
                 error_text.visible = True
-
             self.app_page.update()
 
         error_text = ft.Text("", color=ft.Colors.RED, visible=False)
 
         dialog = ft.AlertDialog(
-            title=ft.Text("Change Master Password"),
+            title=ft.Text("Change Master Password", weight=ft.FontWeight.W_700),
             content=ft.Column(
-                controls=[
-                    old_pw_field,
-                    new_pw_field,
-                    confirm_pw_field,
-                    error_text,
-                ],
+                controls=[old_pw_field, new_pw_field, confirm_pw_field, error_text],
                 spacing=12,
                 tight=True,
             ),
+            shape=ft.RoundedRectangleBorder(radius=16),
             actions=[
-                ft.TextButton("Cancel", on_click=lambda _: setattr(dialog, "open", False) or self.app_page.update()),
+                ft.TextButton(
+                    "Cancel",
+                    on_click=lambda _: setattr(dialog, "open", False)
+                    or self.app_page.update(),
+                ),
                 ft.TextButton("Change", on_click=_do_change),
             ],
         )
-
         self.app_page.overlay.append(dialog)
         dialog.open = True
         self.app_page.update()
 
     def _save_github_settings(self, e) -> None:
-        """Save GitHub OAuth settings."""
         Config.save_settings(
             github_client_id=self._github_client_id.value or "",
             github_client_secret=self._github_client_secret.value or "",
-            auto_lock_seconds=int(self._auto_lock_dropdown.value or Config.AUTO_LOCK_SECONDS),
+            auto_lock_seconds=int(
+                self._auto_lock_dropdown.value or Config.AUTO_LOCK_SECONDS
+            ),
             clipboard_clear_seconds=int(
-                self._clipboard_clear_dropdown.value or Config.CLIPBOARD_CLEAR_SECONDS
+                self._clipboard_clear_dropdown.value
+                or Config.CLIPBOARD_CLEAR_SECONDS
             ),
         )
-
         show_snack_bar(
             self.app_page,
             ft.SnackBar(content=ft.Text("Settings saved")),
         )
 
     def _export_uris(self, e) -> None:
-        """Export all accounts as URI list to clipboard."""
         try:
             from src.utils.export_import import export_uri_list
+
             accounts = self.vault.get_all_accounts()
             uri_text = export_uri_list(accounts)
             set_clipboard(self.app_page, uri_text)
             show_snack_bar(
                 self.app_page,
-                ft.SnackBar(content=ft.Text(f"Exported {len(accounts)} accounts to clipboard")),
+                ft.SnackBar(
+                    content=ft.Text(
+                        f"Exported {len(accounts)} accounts to clipboard"
+                    )
+                ),
             )
         except Exception as ex:
             show_snack_bar(
                 self.app_page,
-                ft.SnackBar(content=ft.Text(f"Export failed: {ex}"), bgcolor=ft.Colors.RED),
+                ft.SnackBar(
+                    content=ft.Text(f"Export failed: {ex}"),
+                    bgcolor=ft.Colors.RED,
+                ),
             )
